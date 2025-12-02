@@ -16,7 +16,8 @@ def load_text_from_folder(folder_path):
                             continue
 
                         # Remove XML-like tags
-                        line = re.sub(r"<.*?>", "", line).strip()
+                        line = re.sub(r"</?[^>]+>", "", line).strip()
+
 
                         if isinstance(line, str):
                             all_lines.append(line)
