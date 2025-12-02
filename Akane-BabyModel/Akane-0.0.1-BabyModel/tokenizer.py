@@ -1,30 +1,36 @@
-from tokenizer import Tokenizer, models, trainers, pre_tokenizers, processors
-
 class SimpleTokenizer:
     def __init__(self):
-        self.tokenizer = Tokenizer(models.BPE())
-        self.tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
-        self.trainer = trainers.BpeTrainer(special_tokens=["<PAD>", "<UNK>", "<BOS>", "<EOS>"])
+        self.vocab = {
+            "<PAD>": 0,
+            "<UNK>": 1,
+            "<BOS>": 2,
+            "<EOS>": 3
+        }
+        self.inverse_vocab = {}
 
     def build_vocab(self, lines):
-        self.tokenizer.train_from_iterator(lines, trainer=self.trainer)
-        self.tokenizer.post_processor = processors.TemplateProcessing(
-            single="<BOS> $A <EOS>",
-            pair="<BOS> $A <EOS> <BOS> $B <EOS>",
-            special_tokens=[
-                ("<BOS>", self.tokenizer.token_to_id("<BOS>")),
-                ("<EOS>", self.tokenizer.token_to_id("<EOS>"))
-            ]
-        )
+        unique_chars = set("".join(lines))
+        idx = len(self.vocab)
+
+        for ch in unique_chars:
+            if ch not in self.vocab:
+                self.vocab[ch] = idx
+                idx += 1
+
+        self.inverse_vocab = {i: ch for ch, i in self.vocab.items()}
 
     def encode(self, text):
-        return self.tokenizer.encode(text).ids
+        encoded = [self.vocab["<BOS>"]]
+        for ch in text:
+            encoded.append(self.vocab.get(ch, self.vocab["<UNK>"]))
+        encoded.append(self.vocab["<EOS>"])
+        return encoded
 
-    def decode(self, token_ids):
-        return self.tokenizer.decode(token_ids)
-
-    def save(self, path):
-        self.tokenizer.save(path)
-
-    def load(self, path):
-        self.tokenizer = Tokenizer.from_file(path)
+    def decode(self, ids):
+        text = []
+        for i in ids:
+            if i in self.inverse_vocab:
+                ch = self.inverse_vocab[i]
+                if ch not in ["<PAD>", "<BOS>", "<EOS>"]:
+                    text.append(ch)
+        return "".join(text)
