@@ -1,0 +1,2 @@
+User: What is C language?
+Akane: C is a simple programming language used for system-level coding.

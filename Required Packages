@@ -1,0 +1,11 @@
+pip install torch
+pip install numpy
+pip install tqdm
+
+----------------------------------
+pip install regex
+----------------------------------
+pip install pypdf
+----------------------------------
+pip install pillow
+----------------------------------
