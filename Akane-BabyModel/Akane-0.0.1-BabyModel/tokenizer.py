@@ -1,36 +1,32 @@
-class SimpleTokenizer:
+import json
+
+class WordTokenizer:
     def __init__(self):
-        self.vocab = {
-            "<PAD>": 0,
-            "<UNK>": 1,
-            "<BOS>": 2,
-            "<EOS>": 3
-        }
+        self.vocab = {"<PAD>":0, "<UNK>":1, "<BOS>":2, "<EOS>":3}
         self.inverse_vocab = {}
 
     def build_vocab(self, lines):
-        unique_chars = set("".join(lines))
+        words = set()
+        for line in lines:
+            words.update(line.strip().split())
         idx = len(self.vocab)
-
-        for ch in unique_chars:
-            if ch not in self.vocab:
-                self.vocab[ch] = idx
+        for w in words:
+            if w not in self.vocab:
+                self.vocab[w] = idx
                 idx += 1
-
-        self.inverse_vocab = {i: ch for ch, i in self.vocab.items()}
+        self.inverse_vocab = {i:w for w,i in self.vocab.items()}
 
     def encode(self, text):
-        encoded = [self.vocab["<BOS>"]]
-        for ch in text:
-            encoded.append(self.vocab.get(ch, self.vocab["<UNK>"]))
-        encoded.append(self.vocab["<EOS>"])
-        return encoded
+        tokens = [self.vocab["<BOS>"]]
+        for w in text.strip().split():
+            tokens.append(self.vocab.get(w, self.vocab["<UNK>"]))
+        tokens.append(self.vocab["<EOS>"])
+        return tokens
 
     def decode(self, ids):
-        text = []
+        words = []
         for i in ids:
-            if i in self.inverse_vocab:
-                ch = self.inverse_vocab[i]
-                if ch not in ["<PAD>", "<BOS>", "<EOS>"]:
-                    text.append(ch)
-        return "".join(text)
+            w = self.inverse_vocab.get(i, "")
+            if w not in ["<PAD>","<BOS>","<EOS>"]:
+                words.append(w)
+        return " ".join(words)

@@ -1,75 +1,65 @@
 import os
 import torch
 from torch import nn, optim
+from torch.nn.utils.rnn import pad_sequence
 from model import BabyTransformer
-from tokenizer import SimpleTokenizer
+from tokenizer import WordTokenizer
 from dataset_loader import load_text_from_folder
 from save_utils import save_tokenizer
 
-# ----------------------
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Training on:", device)
+
 # Paths
-# ----------------------
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dataset_path = os.path.join(script_dir, "Akane_dataset")
 model_path = os.path.join(script_dir, "akane_model.pt")
 tokenizer_path = os.path.join(script_dir, "akane_tokenizer.json")
 
-# ----------------------
 # Load dataset
-# ----------------------
-print("Looking for dataset at:", dataset_path)
-if not os.path.exists(dataset_path):
-    raise FileNotFoundError(f"Dataset folder not found: {dataset_path}")
-
 lines = load_text_from_folder(dataset_path)
 print("Loaded lines:", len(lines))
 
-# ----------------------
-# Build tokenizer
-# ----------------------
-tokenizer = SimpleTokenizer()
+# Tokenizer
+tokenizer = WordTokenizer()
 tokenizer.build_vocab(lines)
 vocab_size = len(tokenizer.vocab)
 print("Vocab size:", vocab_size)
 
-# ----------------------
-# Create model
-# ----------------------
-model = BabyTransformer(vocab_size)
+# Encode lines
+encoded = [torch.tensor(tokenizer.encode(line)) for line in lines]
+
+# Pad sequences for mini-batches
+def make_batch(seqs):
+    padded = pad_sequence(seqs, batch_first=True, padding_value=0)
+    x = padded[:, :-1].to(device)
+    y = padded[:, 1:].to(device)
+    return x, y
+
+# Model
+model = BabyTransformer(vocab_size, embed_dim=128, num_heads=4, num_layers=2).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss(ignore_index=0)
 
-# ----------------------
-# Prepare training data (character-level)
-# ----------------------
-seq_len = 32
-all_text = "".join(lines)
-char_ids = tokenizer.encode(all_text)  # includes <BOS> and <EOS>
+# Training
+epochs = 15  # more epochs for small dataset
+batch_size = 32
 
-def get_batches(ids, seq_len):
-    for i in range(0, len(ids)-seq_len, seq_len):
-        x = ids[i:i+seq_len]
-        y = ids[i+1:i+seq_len+1]
-        yield torch.tensor([x]), torch.tensor([y])
-
-# ----------------------
-# Training loop
-# ----------------------
-epochs = 10  # small baby model
 for epoch in range(epochs):
     total_loss = 0
-    for x, y in get_batches(char_ids, seq_len):
+    for i in range(0, len(encoded), batch_size):
+        batch_seqs = encoded[i:i+batch_size]
+        x, y = make_batch(batch_seqs)
+
         optimizer.zero_grad()
         logits = model(x)
-        loss = criterion(logits.view(-1, vocab_size), y.view(-1))
+        loss = criterion(logits.view(-1, vocab_size), y.reshape(-1))
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
     print(f"Epoch {epoch+1}/{epochs} Loss: {total_loss:.4f}")
 
-# ----------------------
-# Save model and tokenizer INSIDE folder
-# ----------------------
+# Save
 torch.save(model.state_dict(), model_path)
 save_tokenizer(tokenizer, tokenizer_path)
-print(f"Training done. Files saved inside folder:\n{model_path}\n{tokenizer_path}")
+print("Training complete!")
