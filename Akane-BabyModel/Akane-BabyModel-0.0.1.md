@@ -15,7 +15,6 @@ It’s powered by a **tiny Transformer-based model** and uses a tokenizer to enc
 ## Features
 
 - Generates **short, context-based replies**.
-- Can run on **CPU or integrated GPU**.
 - Mini dataset (~2200 lines) for quick experimentation.
 - Separate `chat.py` and `generate.py` for modular design:
   - `chat.py` → interface to talk with Akane.
